@@ -1,26 +1,63 @@
-
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Trophy, BookOpen, Users, BarChart3, Star, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import SubmitGrade from "./SubmitGrade";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
 
-  const studentData = [
+  const [studentData, setStudentData] = useState([
     { rank: 1, name: "Alex Chen", score: 95, trend: "up" },
     { rank: 2, name: "Maria Rodriguez", score: 92, trend: "up" },
     { rank: 3, name: "James Wilson", score: 88, trend: "down" },
     { rank: 4, name: "Emma Thompson", score: 85, trend: "up" },
     { rank: 5, name: "David Kim", score: 82, trend: "stable" },
-  ];
+  ]);
 
-  const recentActivities = [
+  const [recentActivities, setRecentActivities] = useState([
     { student: "Alex Chen", activity: "Submitted Math Quiz #5", score: 98, time: "2 hours ago" },
     { student: "Maria Rodriguez", activity: "Completed Science Project", score: 94, time: "4 hours ago" },
     { student: "James Wilson", activity: "Submitted History Essay", score: 87, time: "6 hours ago" },
-  ];
+  ]);
+
+  const handleGradeSubmitted = (submission: any) => {
+    console.log("Grade submitted:", submission);
+    
+    // Add to recent activities
+    const newActivity = {
+      student: submission.studentName,
+      activity: `Submitted ${submission.assignmentName}`,
+      score: submission.score,
+      time: "Just now"
+    };
+    setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+
+    // Update student data with new average
+    setStudentData(prev => {
+      const updatedData = prev.map(student => {
+        if (student.name === submission.studentName) {
+          // Calculate new average (simplified - in real app would be more complex)
+          const newAverage = Math.round((student.score + submission.score) / 2);
+          return { ...student, score: newAverage };
+        }
+        return student;
+      });
+
+      // Re-rank students based on new scores
+      const rankedData = updatedData
+        .sort((a, b) => b.score - a.score)
+        .map((student, index) => ({ ...student, rank: index + 1 }));
+
+      return rankedData;
+    });
+  };
+
+  // Get current user's rank for student view
+  const currentUserRank = studentData.find(s => s.name === user?.name)?.rank || 1;
+  const currentUserScore = studentData.find(s => s.name === user?.name)?.score || 95;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -157,7 +194,7 @@ const Dashboard = () => {
                   <Trophy className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">#1</div>
+                  <div className="text-2xl font-bold">#{currentUserRank}</div>
                   <p className="text-xs text-muted-foreground">🎉 You're doing amazing!</p>
                 </CardContent>
               </Card>
@@ -167,7 +204,7 @@ const Dashboard = () => {
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">95%</div>
+                  <div className="text-2xl font-bold">{currentUserScore}%</div>
                   <p className="text-xs text-muted-foreground">+2% from last week</p>
                 </CardContent>
               </Card>
@@ -183,42 +220,49 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500" />
-                  Class Leaderboard
-                </CardTitle>
-                <CardDescription>See how you rank among your classmates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {studentData.map((student) => (
-                    <div key={student.rank} className={`flex items-center justify-between p-3 rounded-lg ${
-                      student.name === 'Alex Chen' ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-50'
-                    }`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          student.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
-                          student.rank === 2 ? 'bg-gray-100 text-gray-700' :
-                          student.rank === 3 ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {student.rank}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SubmitGrade 
+                studentName={user?.name || ""} 
+                onGradeSubmitted={handleGradeSubmitted}
+              />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-500" />
+                    Class Leaderboard
+                  </CardTitle>
+                  <CardDescription>See how you rank among your classmates</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {studentData.map((student) => (
+                      <div key={student.rank} className={`flex items-center justify-between p-3 rounded-lg ${
+                        student.name === user?.name ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-50'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            student.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                            student.rank === 2 ? 'bg-gray-100 text-gray-700' :
+                            student.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {student.rank}
+                          </div>
+                          <span className={`font-medium ${student.name === user?.name ? 'text-blue-700' : ''}`}>
+                            {student.name} {student.name === user?.name && '(You)'}
+                          </span>
                         </div>
-                        <span className={`font-medium ${student.name === 'Alex Chen' ? 'text-blue-700' : ''}`}>
-                          {student.name} {student.name === 'Alex Chen' && '(You)'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{student.score}%</span>
+                          {student.rank <= 3 && <Star className="w-4 h-4 text-yellow-500" />}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{student.score}%</span>
-                        {student.rank <= 3 && <Star className="w-4 h-4 text-yellow-500" />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </div>
